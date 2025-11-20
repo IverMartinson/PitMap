@@ -2,6 +2,14 @@
 
 ## Roadmap
 
+### By End of November, 2025
+
+ - [ ] bare minimum BMP support
+
+### By End of December, 2025
+
+ - [ ] full BMP support
+
 ### By End of February, 2026
 
  - [ ] GIF support
