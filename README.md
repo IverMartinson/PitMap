@@ -1,2 +1,1 @@
-# PitMap
-a bitmap (BMP) image parser
+# PitMap, a Bitmap (BMP) Image Parser
