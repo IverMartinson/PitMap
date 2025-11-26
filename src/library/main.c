@@ -74,18 +74,16 @@ PM_image* PM_load_bitmap(){
 
     int row_size = ceil((float)(bits_per_pixel * image_width) / (32)) * 4;
 
-    printf("%d\n", row_size);
-
     if (bits_per_pixel < 8) {
         printf("under 8 bits per pixel not implemented");
     
         return NULL;
     }
 
-    for (int y = image_height - 1; y >= 0; y--){ // starting at the bottom of the image becuase data is backwards
+    for (uint32_t y = 0; y < image_height; y++){
         int current_byte_of_row = 0;
 
-        for (int x = 0; x < image_width; x++){
+        for (int x = image_width - 1; x >= 0; x--){ // starting reversed becuase image data is backwards
             switch (bits_per_pixel){
                 case (32): { // RGBA 1 byte each
                     image->frame_buffer[y * image_height + x] = (uint32_t)((uint8_t)get_1() << 24 | (uint8_t)get_1() << 16 | (uint8_t)get_1() << 8 | (uint8_t)get_1());
@@ -131,11 +129,6 @@ PM_image* PM_load_bitmap(){
 
         skip(row_size - current_byte_of_row);
     }
-
-    printf("\n\ndone\n");
-
-
-    write_tga("./image.tga", image);
 
     return image;
 }
