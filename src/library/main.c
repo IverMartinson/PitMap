@@ -58,6 +58,27 @@ PM_image* PM_load_bitmap(){
     uint32_t number_of_colors_in_palette = get_4();
     skip(4); // number of important colors, ignored
 
+    current_byte = header_size + 14;
+
+    uint32_t* color_palette;
+    
+    if (number_of_colors_in_palette > 0) { // we've got a color palette!
+        color_palette = malloc(sizeof(uint32_t) * number_of_colors_in_palette);
+        
+        for (int i = 0; i < number_of_colors_in_palette; i++){
+            // BGR0 -> RGB255
+            
+            unsigned char r = get_1();
+            unsigned char g = get_1();
+            unsigned char b = get_1();
+            
+            color_palette[i] = r << 24 | g << 16 | b << 8 | 255 << 0;
+            skip(1);
+
+            printf("#%d, %x\n", i, color_palette[i]);
+        }
+    }
+    
     image->frame_buffer = malloc(sizeof(uint32_t) * image_width * image_height);
     image->width = image_width;
     image->height = image_height;
@@ -80,54 +101,85 @@ PM_image* PM_load_bitmap(){
         return NULL;
     }
 
-    for (uint32_t y = 0; y < image_height; y++){
-        int current_byte_of_row = 0;
+    switch (bits_per_pixel){
+        case (32): { // RGBA 1 byte each
+            for (uint32_t y = 0; y < image_height; y++){
+                int current_byte_of_row = 0;
 
-        for (int x = image_width - 1; x >= 0; x--){ // starting reversed becuase image data is backwards
-            switch (bits_per_pixel){
-                case (32): { // RGBA 1 byte each
-                    image->frame_buffer[y * image_height + x] = (uint32_t)((uint8_t)get_1() << 24 | (uint8_t)get_1() << 16 | (uint8_t)get_1() << 8 | (uint8_t)get_1());
+                for (int x = image_width - 1; x >= 0; x--){ // starting reversed becuase image data is backwards
+                    image->frame_buffer[y * image_width + x] = (uint32_t)((uint8_t)get_1() << 24 | (uint8_t)get_1() << 16 | (uint8_t)get_1() << 8 | (uint8_t)get_1());
 
                     current_byte_of_row += 4;
-
-                    break;
                 }
-
-                case (24): { // RGB -> RGBA 1 byte each
-                    image->frame_buffer[y * image_height + x] = (uint32_t)((uint8_t)get_1() << 24 | (uint8_t)get_1() << 16 | (uint8_t)get_1() << 8 | 255);
-                    
-                    current_byte_of_row += 3;
-
-                    break;
-                }
-
-                case (16): {
-
-                        
-                    break;
-                }
-
-                case (8): {
-
-                        
-                    break;
-                }
-
-                case (4): {
-
-                        
-                    break;
-                }
-
-                case (1): {
-
-                        
-                    break;
-                }
+            
+                skip(row_size - current_byte_of_row);
             }
+
+            break;
         }
 
-        skip(row_size - current_byte_of_row);
+        case (24): { // RGB -> RGBA 1 byte each
+            for (uint32_t y = 0; y < image_height; y++){
+                int current_byte_of_row = 0;
+
+                for (int x = image_width - 1; x >= 0; x--){ // starting reversed becuase image data is backwards
+                    image->frame_buffer[y * image_width + x] = (uint32_t)((uint8_t)get_1() << 24 | (uint8_t)get_1() << 16 | (uint8_t)get_1() << 8 | 255);
+                    
+                    current_byte_of_row += 3;
+                }
+            
+                skip(row_size - current_byte_of_row);        
+            }    
+            
+            break;
+        }
+
+        case (16): {
+                
+            break;
+        }
+
+        case (8): { // paletted
+            uint16_t x = 0;
+            uint16_t y = image_height - 1;
+
+            unsigned char reading_file = 1;
+            
+            while (reading_file){
+                uint8_t number_of_repetitions = get_1();
+                uint8_t palette_index = get_1();
+
+                if (number_of_repetitions > 0){
+                    for (uint8_t pixel = 0; pixel < number_of_repetitions; pixel++){
+                        image->frame_buffer[y * image_width + x++] = color_palette[palette_index];
+                    }
+                } else {
+                    if (palette_index == 0) { // end of a line
+                        x = 0;
+                        y--;
+                    } else if (palette_index == 1){ // end of image
+                        reading_file = 0;
+                    } else { // delta   
+                        x += get_1();
+                        y += get_1();
+                    }
+                }
+            }
+                
+            break;
+        }
+
+        case (4): { // paletted
+
+                
+            break;
+        }
+
+        case (1): {
+
+                
+            break;
+        }
     }
 
     return image;
