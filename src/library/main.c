@@ -76,8 +76,6 @@ PM_image* PM_load_bitmap(){
             
             color_palette[i] = r << 24 | g << 16 | b << 8 | 255 << 0;
             skip(1);
-
-            printf("#%d, %x\n", i, color_palette[i]);
         }
     }
     
