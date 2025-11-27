@@ -57,15 +57,17 @@ PM_image* PM_load_bitmap(){
     int32_t vertical_res = get_4();
     uint32_t number_of_colors_in_palette = get_4();
     skip(4); // number of important colors, ignored
-
-    current_byte = header_size + 14;
-
-    uint32_t* color_palette;
     
+    uint32_t* color_palette;
+
     if (number_of_colors_in_palette > 0) { // we've got a color palette!
+        // skip to color palette
+        current_byte = header_size + 14 + // skip the file header (14 bytes) and the DIB
+            12 * (compression_method == 3) + 16 * (compression_method == 6); // skip the bit fields if they exist 
+    
         color_palette = malloc(sizeof(uint32_t) * number_of_colors_in_palette);
         
-        for (int i = 0; i < number_of_colors_in_palette; i++){
+        for (uint32_t i = 0; i < number_of_colors_in_palette; i++){
             // BGR0 -> RGB255
             
             unsigned char r = get_1();
@@ -83,23 +85,11 @@ PM_image* PM_load_bitmap(){
     image->width = image_width;
     image->height = image_height;
 
-    // extra bit masks not implemented
-
-    // color table not implemented
-    
-    // icc color profile not implemented
-
     // pixel array
 
     current_byte = pixel_buffer_offset;
 
     int row_size = ceil((float)(bits_per_pixel * image_width) / (32)) * 4;
-
-    if (bits_per_pixel < 8) {
-        printf("under 8 bits per pixel not implemented");
-    
-        return NULL;
-    }
 
     switch (bits_per_pixel){
         case (32): { // RGBA 1 byte each
@@ -135,13 +125,14 @@ PM_image* PM_load_bitmap(){
         }
 
         case (16): {
-                
+            printf("16 BPP supporet not implemented");
+
             break;
         }
 
         case (8): { // paletted
             uint16_t x = 0;
-            uint16_t y = image_height - 1;
+            uint16_t y = 0;
 
             unsigned char reading_file = 1;
             
@@ -156,7 +147,7 @@ PM_image* PM_load_bitmap(){
                 } else {
                     if (palette_index == 0) { // end of a line
                         x = 0;
-                        y--;
+                        y++;
                     } else if (palette_index == 1){ // end of image
                         reading_file = 0;
                     } else { // delta   
@@ -170,12 +161,14 @@ PM_image* PM_load_bitmap(){
         }
 
         case (4): { // paletted
+            printf("4 BPP supporet not implemented");
 
                 
             break;
         }
 
         case (1): {
+            printf("1 BPP supporet not implemented");
 
                 
             break;
