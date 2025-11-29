@@ -138,7 +138,7 @@ PM_image* PM_load_bitmap(unsigned char debug_mode){
             if (compression_method == 0){ // no compression
                 for (uint32_t y = 0; y < image_height; y++){
 
-                    for (int x = image_width - 1; x >= 0; x--){ // starting reversed becuase image data is backwards
+                    for (int x = 0; x < image_width; x++){ // starting reversed becuase image data is backwards
                     uint8_t palette_index = get_1();
 
                         if (debug_mode) printf("current pixel is %dx%d\npalette index is %d\n", x, y, palette_index);
