@@ -25,7 +25,7 @@ int32_t get_4(){
 }
 
 
-PM_image* PM_load_bitmap(){
+PM_image* PM_load_bitmap(unsigned char debug_mode){
     PM_image* image = malloc(sizeof(PM_image));
 
     current_byte = 0;
@@ -42,9 +42,9 @@ PM_image* PM_load_bitmap(){
     uint32_t file_size = get_4();
     skip(4); // reserved
     uint32_t pixel_buffer_offset = get_4();
-
+    
     // bitmap information header / DIB header
-
+    
     // BITMAPINFOHEADER
     uint32_t header_size = get_4();
     uint32_t image_width = header_size == 12 ? (uint32_t)get_2() : (uint32_t)get_4();
@@ -57,10 +57,14 @@ PM_image* PM_load_bitmap(){
     int32_t vertical_res = get_4();
     uint32_t number_of_colors_in_palette = get_4();
     skip(4); // number of important colors, ignored
+
+    if (debug_mode) printf("file size is %d bytes\nimage res is %dx%d\ncompression method is #%d\npixel buffer offset is %d\n", file_size, image_width, image_height, compression_method, pixel_buffer_offset);
     
     uint32_t* color_palette;
 
     if (number_of_colors_in_palette > 0) { // we've got a color palette!
+        if (debug_mode) printf("color palette exists and has %d colors\n", number_of_colors_in_palette);
+        
         // skip to color palette
         current_byte = header_size + 14 + // skip the file header (14 bytes) and the DIB
             12 * (compression_method == 3) + 16 * (compression_method == 6); // skip the bit fields if they exist 
@@ -88,6 +92,8 @@ PM_image* PM_load_bitmap(){
     current_byte = pixel_buffer_offset;
 
     int row_size = ceil((float)(bits_per_pixel * image_width) / (32)) * 4;
+
+    if (debug_mode) printf("%d bits per pixel\n", bits_per_pixel);
 
     switch (bits_per_pixel){
         case (32): { // RGBA 1 byte each
@@ -129,7 +135,22 @@ PM_image* PM_load_bitmap(){
         }
 
         case (8): { // paletted
-            uint16_t x = 0;
+            if (compression_method == 0){ // no compression
+                for (uint32_t y = 0; y < image_height; y++){
+
+                    for (int x = image_width - 1; x >= 0; x--){ // starting reversed becuase image data is backwards
+                    uint8_t palette_index = get_1();
+
+                        if (debug_mode) printf("current pixel is %dx%d\npalette index is %d\n", x, y, palette_index);
+
+                    
+                        image->frame_buffer[y * image_width + x] = color_palette[palette_index];
+
+                }
+            }    
+            }
+            else { // assume RLE
+                uint16_t x = 0;
             uint16_t y = 0;
 
             unsigned char reading_file = 1;
@@ -140,6 +161,7 @@ PM_image* PM_load_bitmap(){
 
                 if (number_of_repetitions > 0){
                     for (uint8_t pixel = 0; pixel < number_of_repetitions; pixel++){
+                        if (debug_mode) printf("current pixel is %dx%d\npalette index is %d\n", x, y, palette_index);
                         image->frame_buffer[y * image_width + x++] = color_palette[palette_index];
                     }
                 } else {
@@ -153,7 +175,7 @@ PM_image* PM_load_bitmap(){
                         y += get_1();
                     }
                 }
-            }
+            }}
                 
             break;
         }
@@ -176,7 +198,7 @@ PM_image* PM_load_bitmap(){
     return image;
 }
 
-PM_image* PM_load_image(char *filename){
+PM_image* PM_load_image(char *filename, unsigned char debug_mode){
     FILE *fp = fopen(filename, "rb");
 
     if (fp == NULL){
@@ -194,5 +216,5 @@ PM_image* PM_load_image(char *filename){
     fread(file_buffer, 1, size, fp);
     fclose(fp);
 
-    return PM_load_bitmap();
+    return PM_load_bitmap(debug_mode);
 }   

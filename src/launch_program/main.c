@@ -41,7 +41,7 @@ int write_tga(const char* path, const PM_image* img) {
 }
 
 int main(){
-    write_tga("./image.tga", PM_load_image("images/gordon_face.bmp"));
+    write_tga("./image.tga", PM_load_image("images/gordon_face_animated.bmp", 1));
 
     
 

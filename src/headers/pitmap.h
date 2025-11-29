@@ -8,6 +8,6 @@ typedef struct {
     int width, height;
 } PM_image;
 
-PM_image* PM_load_image(char* filename);
+PM_image* PM_load_image(char* filename, unsigned char debug_mode);
 
 #endif
