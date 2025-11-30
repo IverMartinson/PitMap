@@ -97,7 +97,7 @@ PM_image* PM_load_bitmap(unsigned char debug_mode){
 
     switch (bits_per_pixel){
         case (32): { // RGBA 1 byte each
-            for (uint32_t y = 0; y < image_height; y++){
+            for (int y = image_height - 1; y >= 0; y--){
                 int current_byte_of_row = 0;
 
                 for (int x = image_width - 1; x >= 0; x--){ // starting reversed becuase image data is backwards
@@ -113,7 +113,7 @@ PM_image* PM_load_bitmap(unsigned char debug_mode){
         }
 
         case (24): { // RGB -> RGBA 1 byte each
-            for (uint32_t y = 0; y < image_height; y++){
+            for (int y = image_height - 1; y >= 0; y--){
                 int current_byte_of_row = 0;
 
                 for (int x = image_width - 1; x >= 0; x--){ // starting reversed becuase image data is backwards
@@ -136,12 +136,12 @@ PM_image* PM_load_bitmap(unsigned char debug_mode){
 
         case (8): { // paletted
             if (compression_method == 0){ // no compression
-                for (uint32_t y = 0; y < image_height; y++){
+                for (int y = image_height - 1; y >= 0; y--){
 
-                    for (int x = 0; x < image_width; x++){ // starting reversed becuase image data is backwards
+                    for (int x = image_width - 1; x >= 0; x--){ // starting reversed becuase image data is backwards
                     uint8_t palette_index = get_1();
 
-                        if (debug_mode) printf("current pixel is %dx%d\npalette index is %d\n", x, y, palette_index);
+                        // if (debug_mode) printf("current pixel is %dx%d\npalette index is %d\n", x, y, palette_index);
 
                     
                         image->frame_buffer[y * image_width + x] = color_palette[palette_index];
@@ -150,8 +150,8 @@ PM_image* PM_load_bitmap(unsigned char debug_mode){
             }    
             }
             else { // assume RLE
-                uint16_t x = 0;
-            uint16_t y = 0;
+                uint16_t x = image_width - 1;
+            uint16_t y = image_height - 1;
 
             unsigned char reading_file = 1;
             
@@ -161,18 +161,18 @@ PM_image* PM_load_bitmap(unsigned char debug_mode){
 
                 if (number_of_repetitions > 0){
                     for (uint8_t pixel = 0; pixel < number_of_repetitions; pixel++){
-                        if (debug_mode) printf("current pixel is %dx%d\npalette index is %d\n", x, y, palette_index);
-                        image->frame_buffer[y * image_width + x++] = color_palette[palette_index];
+                        // if (debug_mode) printf("current pixel is %dx%d\npalette index is %d\n", x, y, palette_index);
+                        image->frame_buffer[y * image_width + x--] = color_palette[palette_index];
                     }
                 } else {
                     if (palette_index == 0) { // end of a line
-                        x = 0;
-                        y++;
+                        x = image_width - 1;
+                        y--;
                     } else if (palette_index == 1){ // end of image
                         reading_file = 0;
                     } else { // delta   
-                        x += get_1();
-                        y += get_1();
+                        x -= get_1();
+                        y -= get_1();
                     }
                 }
             }}
