@@ -4,7 +4,7 @@
 
 ### By End of November, 2025
 
- - [x] bare minimum BMP support
+ - [x] bare minimum BMP support **`finished on November 29th, 2025`**
 
 ### By End of February, 2026
 

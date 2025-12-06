@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <string.h>
 
 uint8_t *file_buffer;
 int current_byte;
@@ -215,6 +216,16 @@ PM_image* PM_load_image(char *filename, unsigned char debug_mode){
 
     fread(file_buffer, 1, size, fp);
     fclose(fp);
+
+    // see what the file type is
+
+    char *strtok_string = strtok(filename, ".");
+    while(strtok_string != NULL) {
+        strtok_string = strtok(NULL, ".");
+        printf("%s\n", strtok_string);
+    }
+
+    return NULL;
 
     return PM_load_bitmap(debug_mode);
 }   

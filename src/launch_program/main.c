@@ -1,5 +1,7 @@
 #include "../headers/pitmap.h"
 #include <stdio.h>
+
+
 int write_tga(const char* path, const PM_image* img) {
     if (!img || !img->frame_buffer || img->width <= 0 || img->height <= 0)
         return -1;
@@ -41,7 +43,7 @@ int write_tga(const char* path, const PM_image* img) {
 }
 
 int main(){
-    write_tga("./image.tga", PM_load_image("images/gordon_face_animated.bmp", 1));
+    write_tga("./image.tga", PM_load_image("images/test_gif.gif", 1));
 
     
 
