@@ -7,7 +7,49 @@
 uint8_t *file_buffer;
 int current_byte;
 
-// byte funcs
+int (*current_printf_function)(const char *__restrict __format, ...) = printf;
+
+// lsb, the least sig bit is first
+// 1 = 10000000
+char* lsb_byte_to_binary(uint8_t byte){
+    char* string = malloc(sizeof(char) * 9);
+
+    for (int i = 0; i < 8; i++){
+        string[i] = ((byte >> i) & 1) + 0x30;
+    }
+
+    string[8] = '\0';
+
+    return string;
+}
+
+// lsb, the least sig bit is first
+// 1 = 10000000
+char* msb_byte_to_binary(uint8_t byte){
+    char* string = malloc(sizeof(char) * 9);
+
+    for (int i = 0; i < 8; i++){
+        string[7 - i] = ((byte >> i) & 1) + 0x30;
+    }
+
+    string[8] = '\0';
+
+    return string;
+}
+
+// MSB, most sig bit is first
+// 1 = 00000001
+uint16_t binary_to_int(char* binary, uint8_t number_of_bits){
+    uint16_t final_value = 0;
+
+    for (int i = 0; i < number_of_bits; i++){
+        final_value += (1 << i) * (binary[number_of_bits - i - 1] - 0x30);
+    }
+
+    return final_value;
+}
+
+// byte reading funcs
 
 void skip(int bytes_to_skip){
     current_byte += bytes_to_skip;
@@ -36,7 +78,7 @@ PM_image* PM_load_bitmap(unsigned char debug_mode){
     uint16_t header_field = get_2();
 
     if (header_field != 19778) {
-        printf("file is not a bitmap file or bitmap is damaged\n");
+        (*current_printf_function)("file is not a bitmap file or bitmap is damaged\n");
         return NULL;
     }
 
@@ -59,12 +101,12 @@ PM_image* PM_load_bitmap(unsigned char debug_mode){
     uint32_t number_of_colors_in_palette = get_4();
     skip(4); // number of important colors, ignored
 
-    if (debug_mode) printf("file size is %d bytes\nimage res is %dx%d\ncompression method is #%d\npixel buffer offset is %d\n", file_size, image_width, image_height, compression_method, pixel_buffer_offset);
+    (*current_printf_function)("file size is %d bytes\nimage res is %dx%d\ncompression method is #%d\npixel buffer offset is %d\n", file_size, image_width, image_height, compression_method, pixel_buffer_offset);
     
     uint32_t* color_palette;
 
     if (number_of_colors_in_palette > 0) { // we've got a color palette!
-        if (debug_mode) printf("color palette exists and has %d colors\n", number_of_colors_in_palette);
+        (*current_printf_function)("color palette exists and has %d colors\n", number_of_colors_in_palette);
         
         // skip to color palette
         current_byte = header_size + 14 + // skip the file header (14 bytes) and the DIB
@@ -94,7 +136,7 @@ PM_image* PM_load_bitmap(unsigned char debug_mode){
 
     int row_size = ceil((float)(bits_per_pixel * image_width) / (32)) * 4;
 
-    if (debug_mode) printf("%d bits per pixel\n", bits_per_pixel);
+    (*current_printf_function)("%d bits per pixel\n", bits_per_pixel);
 
     switch (bits_per_pixel){
         case (32): { // RGBA 1 byte each
@@ -130,7 +172,7 @@ PM_image* PM_load_bitmap(unsigned char debug_mode){
         }
 
         case (16): {
-            printf("16 BPP supporet not implemented");
+            (*current_printf_function)("16 BPP supporet not implemented");
 
             break;
         }
@@ -142,7 +184,7 @@ PM_image* PM_load_bitmap(unsigned char debug_mode){
                     for (int x = image_width - 1; x >= 0; x--){ // starting reversed becuase image data is backwards
                     uint8_t palette_index = get_1();
 
-                        // if (debug_mode) printf("current pixel is %dx%d\npalette index is %d\n", x, y, palette_index);
+                        // (*current_printf_function)("current pixel is %dx%d\npalette index is %d\n", x, y, palette_index);
 
                     
                         image->frame_buffer[y * image_width + x] = color_palette[palette_index];
@@ -162,7 +204,7 @@ PM_image* PM_load_bitmap(unsigned char debug_mode){
 
                 if (number_of_repetitions > 0){
                     for (uint8_t pixel = 0; pixel < number_of_repetitions; pixel++){
-                        // if (debug_mode) printf("current pixel is %dx%d\npalette index is %d\n", x, y, palette_index);
+                        // (*current_printf_function)("current pixel is %dx%d\npalette index is %d\n", x, y, palette_index);
                         image->frame_buffer[y * image_width + x--] = color_palette[palette_index];
                     }
                 } else {
@@ -182,14 +224,14 @@ PM_image* PM_load_bitmap(unsigned char debug_mode){
         }
 
         case (4): { // paletted
-            printf("4 BPP supporet not implemented");
+            (*current_printf_function)("4 BPP supporet not implemented");
 
                 
             break;
         }
 
         case (1): {
-            printf("1 BPP supporet not implemented");
+            (*current_printf_function)("1 BPP supporet not implemented");
 
                 
             break;
@@ -199,7 +241,353 @@ PM_image* PM_load_bitmap(unsigned char debug_mode){
     return image;
 }
 
-PM_image* PM_load_image(char *filename, unsigned char debug_mode){
+
+void add_code(uint16_t code, uint16_t clear_code, uint16_t* decoded_color_codes, uint16_t* decoded_color_code_count, int16_t** code_table, uint16_t depth, uint8_t is_first_add_branch, uint16_t* current_highest_code, uint8_t* lzw_bit_size, uint16_t* code_table_length, uint16_t previous_code, uint8_t can_make_new_codes);
+
+void add_code(uint16_t code, uint16_t clear_code, uint16_t* decoded_color_codes, uint16_t* decoded_color_code_count, int16_t** code_table, uint16_t depth, uint8_t is_first_add_branch, uint16_t* current_highest_code, uint8_t* lzw_bit_size, uint16_t* code_table_length, uint16_t previous_code, uint8_t can_make_new_codes){
+    for (int i = 0; i < depth; i++){
+        //(*current_printf_function)("-");
+    }
+    
+    if (code > clear_code){
+        //(*current_printf_function)("reached fork \"%s\"\n", msb_byte_to_binary(code));
+        add_code((*code_table)[code * 2], clear_code, decoded_color_codes, decoded_color_code_count, code_table, depth + 1, 1, current_highest_code, lzw_bit_size, code_table_length, previous_code, can_make_new_codes);
+        add_code((*code_table)[code * 2 + 1], clear_code, decoded_color_codes, decoded_color_code_count, code_table, depth + 1, 0, current_highest_code, lzw_bit_size, code_table_length, previous_code, can_make_new_codes);
+    } else {
+        //(*current_printf_function)("added %d\n", code);
+        // (*current_printf_function)("pixel #%d\n", *decoded_color_code_count);
+        decoded_color_codes[(*decoded_color_code_count)++] = code;
+
+        if (is_first_add_branch && can_make_new_codes && previous_code != clear_code){
+            (*current_highest_code)++;
+
+            (*current_printf_function)("-----new code: %s -> %d (%s), %d (%s)\n", msb_byte_to_binary(*current_highest_code), previous_code, msb_byte_to_binary(previous_code), code, msb_byte_to_binary(code));
+
+            if (*current_highest_code == (1 << *lzw_bit_size) - 1){ // if code table is full, increase bit count
+                (*current_printf_function)("--code table full (%d/%d), bit count increased from %d->%d\n", *current_highest_code, (1 << *lzw_bit_size) - 1, *lzw_bit_size, *lzw_bit_size + 1);
+
+                (*lzw_bit_size)++;
+
+                *code_table_length = 1 << *lzw_bit_size;
+
+                    (*current_printf_function)("--allocating new code table (%d entries, %d values)\n", *code_table_length, *code_table_length * 2);
+                
+
+                (*code_table) = realloc((*code_table), sizeof(int16_t) * *code_table_length * 2);
+                
+                for(int i = (*current_highest_code + 1) * 2; i < *code_table_length * 2; i++){
+                    (*current_printf_function)("%d\n", i);
+                    (*code_table)[i] = -1;
+                }
+            }
+
+            (*code_table)[*current_highest_code * 2] = previous_code;
+            (*code_table)[*current_highest_code * 2 + 1] = code;
+        }
+    }
+
+    return;
+}
+
+uint16_t get_first_byte_of_code(uint16_t code, uint16_t clear_code, int16_t* code_table);
+
+uint16_t get_first_byte_of_code(uint16_t code, uint16_t clear_code, int16_t* code_table){   
+    if (code > clear_code){
+        return get_first_byte_of_code(code_table[code * 2], clear_code, code_table);
+    } else {
+        return code;
+    }
+}
+
+PM_image* PM_load_gif(unsigned char debug_mode){
+    PM_image* image = malloc(sizeof(PM_image));
+    
+    current_byte = 0;
+
+    // magic number
+
+    if (get_1() != 0x47 || get_1() != 0x49 || get_1() != 0x46 || get_1() != 0x38 || get_1() != 0x39 || get_1() != 0x61){
+        current_byte = 4;
+
+        if (get_1() != 0x37){
+            (*current_printf_function)("file is not a gif file, or gif is damaged\n");
+
+            return NULL;
+        } 
+        
+        skip(1);
+    }
+    
+    // image info
+
+    uint16_t image_width = get_2();
+    uint16_t image_height = get_2();
+
+    uint8_t color_table_info = get_1();
+    uint8_t background_color = get_1();
+    uint8_t pixel_aspect_ratio = get_1();
+
+    (*current_printf_function)("color table info: %x\n", color_table_info);
+
+    // value used for encoding actual size of color table
+    uint8_t size_of_gct = (color_table_info & 0x07); // bit mask 0000 0111
+    // 0 = unsorted, 1 = sorted by importance
+    uint8_t color_table_sort_flag = (color_table_info & 0x08) >> 3; // bit mask 0000 1000
+    // original color depth of the image when it was created, bits per color
+    // doesn't matter (?)
+    uint8_t color_resolution = ((color_table_info & 0x70) >> 4) + 1; // bit mask 0111 0000
+    // 1 = gct exists
+    uint8_t gct_flag = (color_table_info & 0x80) >> 7; // bit mask 1000 0000
+    // total number of colors in gct
+    uint16_t number_of_colors_in_gct = 1 << (size_of_gct + 1);
+
+    (*current_printf_function)("size_of_gct: %d color_table_sort_flag: %d color_resolution: %d gct_flag: %d number_of_colors_in_gct: %d\n", size_of_gct
+,color_table_sort_flag
+,color_resolution
+,gct_flag
+,number_of_colors_in_gct);
+
+    uint32_t* global_color_table = malloc(sizeof(uint32_t) * number_of_colors_in_gct);
+
+    // global color table (if present)
+
+    if (gct_flag){
+        (*current_printf_function)("started reading color table block at byte #%d\n", current_byte);
+            
+        for (int i = 0; i < number_of_colors_in_gct; i++){
+            // just gonna assume 8bit
+            unsigned char r = get_1(); 
+            unsigned char g = get_1(); 
+            unsigned char b = get_1();
+            
+            global_color_table[i] = r << 24 | g << 16 | b << 8 | 255 << 0;
+        }
+    }
+
+    unsigned char still_reading_file = 1;
+
+    while (still_reading_file){        
+        switch(get_1()){
+            case 0x21: { // "!" graphics control extention
+                if ((uint8_t)get_1() != (uint8_t)0xF9) break; // a different block denoted by "!", ignore
+                
+                (*current_printf_function)("started reading graphics control extention block at byte #%d\n", current_byte);
+                
+                uint8_t gce_size = get_1();
+                uint8_t packed_field = get_1(); // bit field
+                skip(2);
+                uint8_t transparent_color_gct_index = get_1();
+                skip(1);
+
+                // "disposal method" is the first variable in the packed field
+                // we can ignore this because I think it's mostly for UI programs
+
+                // next is "input method" and it doesn't rly make sense to me to 
+                // exist in the first place
+                
+                // transparency flag; transparency index is given
+
+                (*current_printf_function)("transparency index: %d\n", transparent_color_gct_index);
+
+                // set the transparent color to 0% opacity
+                if (packed_field & 1) global_color_table[transparent_color_gct_index] &= 0xFFFFFF00; // bit mask for alpha channel to be 0
+
+                break;
+            }
+
+            case 0x2C: { // "," image descriptor
+                (*current_printf_function)("started reading image descriptor block at byte #%d\n", current_byte - 1);
+
+                uint16_t image_left_pos = get_2();
+                uint16_t image_top_pos = get_2();
+                uint16_t image_width = get_2();
+                uint16_t image_height = get_2();
+
+                (*current_printf_function)("width height %dx%d\n", image_width, image_height);
+
+                uint8_t packed_field = get_1();
+
+                uint8_t local_color_table_flag = (packed_field & 0x80) >> 7;
+                uint8_t interlace_flag = (packed_field & 0x40) >> 6;
+                uint8_t local_color_table_is_sorted_flag = (packed_field & 0x20) >> 5;
+                uint16_t entries_of_local_color_table = 1 << ((packed_field & 7) + 1);
+
+                uint32_t* local_color_table = NULL;
+
+                if (local_color_table_flag){
+                    (*current_printf_function)("theres a local color table\n");
+
+                    local_color_table = malloc(sizeof(uint32_t) * entries_of_local_color_table);
+
+                    for (int i = 0; i < entries_of_local_color_table; i++){
+                        // just gonna assume 8bit again
+                        unsigned char r = get_1(); 
+                        unsigned char g = get_1(); 
+                        unsigned char b = get_1();
+                        
+                        local_color_table[i] = r << 24 | g << 16 | b << 8 | 255 << 0;
+                    }
+                }
+
+                (*current_printf_function)("started reading image data block at byte #%d\n", current_byte);
+
+                uint8_t number_of_initial_lzw_bits = get_1(); // how many possible colors and also LZW size + 1 = how many bits you need
+                uint8_t image_data_byte_length = get_1(); // length of following image data
+
+                (*current_printf_function)("LZW initial bit size: %d\nimage data byte length: %d\n", number_of_initial_lzw_bits, image_data_byte_length);
+
+                uint8_t* image_data_byte_array = malloc(sizeof(uint8_t) * image_data_byte_length);
+
+                char* lzw_data_binary_string = malloc(sizeof(char) * image_data_byte_length * 8 + 1);
+
+                for (int i = 0; i < image_data_byte_length; i++) {
+                    image_data_byte_array[i] = get_1();
+
+                    char* byte_string = lsb_byte_to_binary(image_data_byte_array[i]);
+
+                    memcpy(lzw_data_binary_string + i * 8, byte_string, 9 * sizeof(char));
+
+                    free(byte_string);
+                }   
+
+                (*current_printf_function)("LZW data: %s\n", lzw_data_binary_string);
+                
+                uint8_t lzw_bit_size = number_of_initial_lzw_bits + 1;
+                uint16_t code_table_length = 1 << lzw_bit_size;
+                
+                int16_t* code_table = malloc(sizeof(int16_t) * code_table_length * 2);
+                uint16_t* decoded_color_codes = malloc(sizeof(uint16_t) * image_width * image_height);
+
+                uint16_t current_bit = 0;
+
+                char* code_string = malloc(sizeof(char) * lzw_bit_size + 1);
+                code_string[lzw_bit_size] = '\0';
+
+                uint16_t clear_code = 1 << number_of_initial_lzw_bits;
+                uint16_t stop_code = clear_code + 1;
+                
+                (*current_printf_function)("clear code: %d aka %s end code %d aka %s\n", clear_code, msb_byte_to_binary(clear_code), stop_code, msb_byte_to_binary(stop_code));
+
+                uint16_t current_highest_code = stop_code;
+
+                uint16_t decoded_color_code_count = 0;
+
+                uint16_t previous_code = 0;
+
+                uint16_t max_iterations = 10000;
+                while(max_iterations-- > 0){
+                    (*current_printf_function)("\n");
+                    (*current_printf_function)("\n");
+
+                    for (int i = 0; i < lzw_bit_size; i++){ // read out the bits of current code and then flip them
+                        code_string[i] = lzw_data_binary_string[current_bit + (lzw_bit_size - i - 1)];
+                    }
+                    
+                    current_bit += lzw_bit_size;
+                
+                    uint16_t code_int = binary_to_int(code_string, lzw_bit_size);
+
+                    (*current_printf_function)("parsing code %s\n", code_string);
+
+                    if (code_int == clear_code){
+                        (*current_printf_function)("-%s -> clear code\n", code_string);
+
+                        for(int i = 0; i < code_table_length * 2; i++){
+                            code_table[i] = -1;
+                        }
+                    } else if (code_int == stop_code){
+                        (*current_printf_function)("-%s -> stop code\n", code_string);
+                        
+                        break;
+                    } else { // code is not an instruction
+                        if (code_int < clear_code) {
+                            (*current_printf_function)("-%s -> value code\n", code_string);
+                            
+                            add_code(code_int, clear_code, decoded_color_codes, &decoded_color_code_count, &code_table, 1, 1, &current_highest_code, &lzw_bit_size, &code_table_length, previous_code, 1);
+                        } 
+                        else {
+                            (*current_printf_function)("-%s -> representative code\n", code_string);
+
+                            if (code_table[code_int * 2] == -1){ // code is undefined
+                                (*current_printf_function)("--code undefined, created new code\n");
+                                
+                                current_highest_code++;
+                            
+                                if (current_highest_code == (1 << lzw_bit_size) - 1){ // if code table is full, increase bit count
+                                    (*current_printf_function)("---code table full, bit count increased from %d->%d\n", lzw_bit_size, lzw_bit_size + 1);
+
+                                    lzw_bit_size++;
+
+                                    code_table_length = 1 << lzw_bit_size;
+
+                                    (*current_printf_function)("---allocating new code table (%d entries, %d values)\n", code_table_length, code_table_length * 2);
+
+                                    code_table = realloc(code_table, sizeof(int16_t) * code_table_length * 2);
+                                
+                                    for(int i = (current_highest_code + 1) * 2; i < code_table_length * 2; i++){
+                                        code_table[i] = -1;
+                                    }
+                                }
+
+                                code_table[current_highest_code * 2] = previous_code;
+                                code_table[current_highest_code * 2 + 1] = get_first_byte_of_code(previous_code, clear_code, code_table);
+
+                                (*current_printf_function)("---created new code table entry: %s -> %d (%s), %d (%s)\n", code_string, previous_code, msb_byte_to_binary(previous_code), code_table[current_highest_code * 2 + 1], msb_byte_to_binary(code_table[current_highest_code * 2 + 1]));
+
+                                add_code(current_highest_code, clear_code, decoded_color_codes, &decoded_color_code_count, &code_table, 1, 1, &current_highest_code, &lzw_bit_size, &code_table_length, previous_code, 0);
+                            } else {
+                                add_code(code_int, clear_code, decoded_color_codes, &decoded_color_code_count, &code_table, 1, 1, &current_highest_code, &lzw_bit_size, &code_table_length, previous_code, 1);
+                            }
+                        }
+                    }
+
+                    (*current_printf_function)("%d decoded colors out of %d (%d/%d)\n", decoded_color_code_count, image_width * image_height, decoded_color_code_count, image_width * image_height);
+                
+                    for (int i = 0; i < decoded_color_code_count; i++){
+                        if (i % image_width == 0) (*current_printf_function)("\n");
+                        if(!decoded_color_codes[i]) (*current_printf_function)("██");
+                        else (*current_printf_function)("░░");
+                    }
+
+                    (*current_printf_function)("\n");
+
+                    for (int i = 0; i <= (1 << lzw_bit_size) - 1; i++){
+                        (*current_printf_function)("%s (%d) -> %d %d\n", msb_byte_to_binary(i), i, code_table[i * 2], code_table[i * 2 + 1]);
+                    }
+
+                    previous_code = code_int;
+                }
+
+                free(code_table);
+                free(lzw_data_binary_string);
+                free(image_data_byte_array);
+                if (local_color_table_flag) free(local_color_table);
+
+                if (get_1()){ // if last byte isn't 00 then something went wrong
+                    (*current_printf_function)("image data is corrupted (image descriptor didn't end with 0x00, byte #%d)\n", current_byte - 1);
+                }
+
+                break;
+            }
+
+            case 0x3B: { // ";" EOF
+                (*current_printf_function)("EOF at byte #%d\n", current_byte - 1);
+
+                still_reading_file = 0;
+                
+                break;
+            }
+        }
+    }
+
+    return NULL;
+}
+
+int printf_override(const char *__restrict __format, ...){
+    return 0;
+}
+
+PM_image* PM_load_image(const char *filename, unsigned char debug_mode){
     FILE *fp = fopen(filename, "rb");
 
     if (fp == NULL){
@@ -219,13 +607,30 @@ PM_image* PM_load_image(char *filename, unsigned char debug_mode){
 
     // see what the file type is
 
-    char *strtok_string = strtok(filename, ".");
+    char* mutable_filename = malloc(sizeof(filename));
+    strcpy(mutable_filename, filename);
+
+    char *strtok_string = strtok(mutable_filename, ".");
+    char *filetype_string;
+    
     while(strtok_string != NULL) {
+        filetype_string = strtok_string;
         strtok_string = strtok(NULL, ".");
-        printf("%s\n", strtok_string);
     }
 
-    return NULL;
+    // override printf so there is no debug output
+    if (!debug_mode){
+        current_printf_function = printf_override;
+    }
 
-    return PM_load_bitmap(debug_mode);
+    if (!strcmp(filetype_string, "gif") || !strcmp(filetype_string, "GIF")){ // GIF file
+        return PM_load_gif(debug_mode);
+    } else 
+    if (!strcmp(filetype_string, "bmp") || !strcmp(filetype_string, "BMP")){ // BMP file
+        return PM_load_bitmap(debug_mode);
+    }
+
+    printf("file is unreadable by PitMap\n");
+
+    return NULL;
 }   
