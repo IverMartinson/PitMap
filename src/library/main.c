@@ -49,6 +49,12 @@ uint16_t binary_to_int(char* binary, uint8_t number_of_bits){
     return final_value;
 }
 
+// return individial bit's value. Zero indexed
+// msb_get_bit(00100, 2) == 1
+uint8_t msb_get_bit(uint32_t data, uint8_t bit){
+    return (data >> bit) & 1;
+}
+
 // byte reading funcs
 
 void skip(int bytes_to_skip){
@@ -242,73 +248,6 @@ PM_image* PM_load_bitmap(unsigned char debug_mode){
 }
 
 
-int add_code(uint16_t code, uint16_t clear_code, uint16_t* decoded_color_codes, uint16_t* decoded_color_code_count, int16_t** code_table, uint16_t depth, uint8_t is_first_add_branch, uint16_t* current_highest_code, uint8_t* lzw_bit_size, uint16_t* code_table_length, uint16_t previous_code, uint8_t can_make_new_codes);
-
-int add_code(uint16_t code, uint16_t clear_code, uint16_t* decoded_color_codes, uint16_t* decoded_color_code_count, int16_t** code_table, uint16_t depth, uint8_t is_first_add_branch, uint16_t* current_highest_code, uint8_t* lzw_bit_size, uint16_t* code_table_length, uint16_t previous_code, uint8_t can_make_new_codes){
-    if (depth > 1000) {        
-        printf("max \"add code\" depth reached (probably reference loop in code table)\n");
-
-        exit(1);
-    }    
-
-    if (code > clear_code){
-        if ((*code_table)[code * 2 + 1] > clear_code) {printf("error: 2nd part of code table entry is representative, not literal\n");
-        for (int i = 0; i < (1 << (*lzw_bit_size)); i++){
-                        (*current_printf_function)("%s (%d) -> %s %s\n", msb_byte_to_binary(i, *lzw_bit_size), i, msb_byte_to_binary((*code_table)[i * 2], *lzw_bit_size), msb_byte_to_binary((*code_table)[i * 2 + 1], *lzw_bit_size));
-                    }
-        
-            exit(0);}
-        //(*current_printf_function)("reached fork \"%s\"\n", msb_byte_to_binary(code));
-        add_code((*code_table)[code * 2], clear_code, decoded_color_codes, decoded_color_code_count, code_table, depth + 1, 1, current_highest_code, lzw_bit_size, code_table_length, previous_code, can_make_new_codes);
-        add_code((*code_table)[code * 2 + 1], clear_code, decoded_color_codes, decoded_color_code_count, code_table, depth + 1, 0, current_highest_code, lzw_bit_size, code_table_length, previous_code, can_make_new_codes);    
-    } else {
-        //(*current_printf_function)("added %d\n", code);
-        // (*current_printf_function)("pixel #%d\n", *decoded_color_code_count);
-        decoded_color_codes[(*decoded_color_code_count)++] = code;
-    
-        if (is_first_add_branch && can_make_new_codes && previous_code != clear_code){
-            (*current_highest_code)++;
-
-            (*current_printf_function)("-----new code: %s -> %d (%s), %d (%s)\n", msb_byte_to_binary(*current_highest_code, *lzw_bit_size), previous_code, msb_byte_to_binary(previous_code, *lzw_bit_size), code, msb_byte_to_binary(code, *lzw_bit_size));
-
-            if (*current_highest_code == (1 << *lzw_bit_size) - 1){ // if code table is full, increase bit count
-                (*current_printf_function)("bit count increased from %d->%d\n", *lzw_bit_size, *lzw_bit_size + 1);
-
-                (*lzw_bit_size)++;
-
-                *code_table_length = 1 << *lzw_bit_size;
-            } 
-
-            (*code_table)[*current_highest_code * 2] = previous_code;
-            (*code_table)[*current_highest_code * 2 + 1] = code;
-        }
-    }
-
-    return 0; 
-}
-
-uint16_t get_first_byte_of_code(uint16_t code, uint16_t clear_code, uint16_t current_highest_code, int16_t* code_table);
-
-uint16_t get_first_byte_of_code(uint16_t code, uint16_t clear_code, uint16_t current_highest_code, int16_t* code_table){   
-    if (code > clear_code){
-        if (code >= current_highest_code){
-            printf("get_first_byte_of_code error: code is higher than current_highest_code. code %s (%d)\n", msb_byte_to_binary(code, 16), code);
-        
-            exit(1);
-        }
-        
-        if (code_table[code * 2] == code) {
-            printf("get_first_byte_of_code error: self referencing code. code %s (%d) -> %s (%d) & %s (%d)\n", msb_byte_to_binary(code, 16), code, msb_byte_to_binary(code_table[code * 2], 16), code_table[code * 2], msb_byte_to_binary(code_table[code * 2 + 1], 16), code_table[code * 2 + 1]);
-
-            exit(1);
-        }
-
-        return get_first_byte_of_code(code_table[code * 2], clear_code, current_highest_code, code_table);
-    } else {
-        return code;
-    }
-}
-
 PM_image* PM_load_gif(unsigned char debug_mode){
     PM_image* image = malloc(sizeof(PM_image));
 
@@ -394,6 +333,13 @@ PM_image* PM_load_gif(unsigned char debug_mode){
             
             global_color_table[i] = b << 24 | g << 16 | r << 8 | 255 << 0;
         }
+
+        // image->frame_buffer = global_color_table;
+        // image->width = number_of_colors_in_gct + 1;
+        // image->frame_buffer = realloc(image->frame_buffer, sizeof(uint32_t) * (number_of_colors_in_gct + 1));
+        // image->frame_buffer[number_of_colors_in_gct] = 0xFF00FFFF;
+        // image->height = 1;
+        // return image;
     }
 
     unsigned char still_reading_file = 1;
@@ -462,8 +408,13 @@ PM_image* PM_load_gif(unsigned char debug_mode){
                         unsigned char g = get_1(); 
                         unsigned char b = get_1();
                         
-                        local_color_table[i] = r << 24 | g << 16 | b << 8 | 255 << 0;
+                        local_color_table[i] = b << 24 | g << 16 | r << 8 | 255 << 0;
                     }
+
+                    // image->frame_buffer = local_color_table;
+                    // image->width = sqrt(entries_of_local_color_table);
+                    // image->height = sqrt(entries_of_local_color_table);
+                    // return image;
                 }
 
                 (*current_printf_function)("started reading image data block at byte #%d\n", current_byte);
@@ -473,173 +424,221 @@ PM_image* PM_load_gif(unsigned char debug_mode){
                 uint8_t image_data_byte_length = get_1(); 
 
                 uint16_t* decoded_color_codes = malloc(sizeof(uint16_t) * image_descriptor_width * image_descriptor_height);
+                uint32_t decoded_color_code_count = 0;
+
+                uint32_t* code_table = malloc(sizeof(uint32_t) * 4096 * 2);
 
                 (*current_printf_function)("LZW initial bit size: %d\n", number_of_initial_lzw_bits);
                 
-                uint8_t* image_data_byte_array = malloc(sizeof(uint8_t) * image_data_byte_length);
-
-                char* lzw_data_binary_string = NULL;
-
-                uint32_t current_byte_read_offset = 0;
-
-                (*current_printf_function)("parsing sub blocks..");
-
+                uint8_t* image_data_byte_array = NULL;
+                uint32_t total_image_data_byte_length = 0;
+                
                 while (image_data_byte_length != 0){
-                    lzw_data_binary_string = realloc(lzw_data_binary_string, sizeof(char) * ((image_data_byte_length + current_byte_read_offset) * 8 + 1));
+                    total_image_data_byte_length += image_data_byte_length;
 
-                    (*current_printf_function)("image_data_byte_length: %d\ncurrent_byte_read_offset: %d\n", image_data_byte_length, current_byte_read_offset);
-
-                    for (uint8_t i = 0; i < image_data_byte_length; i++) {
-                        image_data_byte_array[i] = get_1();
-
-                        char* byte_string = lsb_byte_to_binary(image_data_byte_array[i], 8);
-
-                        memcpy(lzw_data_binary_string + (i + current_byte_read_offset) * 8, byte_string, 8 * sizeof(char));
-
-                        free(byte_string);
-                    }   
-
-                    current_byte_read_offset += image_data_byte_length;
+                    image_data_byte_array = realloc(image_data_byte_array, sizeof(uint8_t) * total_image_data_byte_length);
+                    
+                    for (int i = 0; i < image_data_byte_length; i++){
+                        image_data_byte_array[total_image_data_byte_length - image_data_byte_length + i] = get_1();
+                        printf("%s ", lsb_byte_to_binary(image_data_byte_array[total_image_data_byte_length - image_data_byte_length + i], 8));
+                    }
+                    printf("\n");
 
                     image_data_byte_length = get_1();
-                }
+                } 
 
-                (*current_printf_function)("LZW data: %s\n", lzw_data_binary_string);
-                
-                uint8_t lzw_bit_size = number_of_initial_lzw_bits + 1;
-                uint16_t code_table_length = 1 << lzw_bit_size;
-                
-                int16_t* code_table = malloc(sizeof(int16_t) * 4096 * 2);
-
-                for(int i = 0; i < 4096 * 2; i++){
-                            code_table[i] = -1;
-                        }
-
+                uint8_t lzw_bit_count = number_of_initial_lzw_bits + 1;
                 uint32_t current_bit = 0;
 
-                char* code_string = malloc(sizeof(char) * 33); // i dont want to realloc
-                code_string[lzw_bit_size] = '\0';
+                uint8_t is_parsing = 1;
 
-                uint16_t clear_code = 1 << number_of_initial_lzw_bits;
-                uint16_t stop_code = clear_code + 1;
-                
-                (*current_printf_function)("clear code: %d aka %s end code %d aka %s\n", clear_code, msb_byte_to_binary(clear_code, lzw_bit_size), stop_code, msb_byte_to_binary(stop_code, lzw_bit_size));
+                uint32_t clear_code = 1 << number_of_initial_lzw_bits;
+                uint32_t stop_code = clear_code + 1;
 
-                uint16_t current_highest_code = stop_code;
+                uint32_t previous_code = stop_code; 
 
-                uint16_t decoded_color_code_count = 0;
+                uint32_t current_highest_defined_code = stop_code;
 
-                uint16_t previous_code = 0;
+                printf("clear code: %d stop code: %d\n", clear_code, stop_code);
 
-                char* parsed_binary_string = malloc(sizeof(char) * current_byte_read_offset * 8 * 2); // x2 for extra padding just in case
+                while (is_parsing){
+                    uint32_t code = 0;
+                                                                        
+                    if (current_bit < total_image_data_byte_length * 8){
+                        for (uint32_t i = current_bit; i < lzw_bit_count + current_bit; i++){
+                            uint32_t current_byte = floor(i / 8);
+                            uint32_t current_bit_in_byte = i % 8;
+                        
+                            code += msb_get_bit(image_data_byte_array[current_byte], current_bit_in_byte) * (1 << (i - current_bit));
+                        }
 
-                for (uint32_t i = 0; i < current_byte_read_offset * 8 * 2; i++){
-                    parsed_binary_string[i] = '\0';
-                }
-
-                uint8_t parsing = 1;
-
-                while(parsing){
-                    (*current_printf_function)("\n\n current bit: %d\n", current_bit);
-                    (*current_printf_function)("\n\n current lzw bit count: %d\n", lzw_bit_size);
-
-                    for (int i = 0; i < lzw_bit_size; i++){ // read out the bits of current code and then flip them
-                        code_string[i] = lzw_data_binary_string[current_bit + (lzw_bit_size - i - 1)];
-
-                        (*current_printf_function)("%c ", lzw_data_binary_string[current_bit + (lzw_bit_size - i - 1)]);
+                        current_bit += lzw_bit_count;
+                    } else {
+                        printf("error: read past data length\n");
+                        exit(1);
                     }
 
-                    code_string[lzw_bit_size] = '\0';
+                    printf("parsing code %s (%d)\n", msb_byte_to_binary(code, lzw_bit_count), (int)code);
 
-                    memcpy(parsed_binary_string + current_bit, code_string, lzw_bit_size);
-                    
-                    (*current_printf_function)("\n");
-                    
-                    current_bit += lzw_bit_size;
+                    if (code == clear_code){
+                        printf("clear code!\n");
 
-                    uint16_t code_int = binary_to_int(code_string, lzw_bit_size);
-
-                    (*current_printf_function)("parsing code %s\n", code_string);
-
-                    if (code_int == clear_code){
-                        (*current_printf_function)("-%s -> clear code\n", code_string);
-
-                        lzw_bit_size = number_of_initial_lzw_bits + 1;
-
-                        current_highest_code = stop_code;
-
-                        for(int i = 0; i < 4096 * 2; i++){
-                            code_table[i] = -1;
+                        for (int i = 0; i < 4096 * 2; i++){
+                            code_table[i] = (uint32_t)(0) - 1;
                         }
-                    } else if (code_int == stop_code){
-                        printf("-%s -> stop code\n", code_string);
-                        
-                        break;
-                    } else { // code is not an instruction
-                        if (code_int < clear_code || previous_code == clear_code) {
-                            (*current_printf_function)("-%s -> value code\n", code_string);
-                            
-                            add_code(code_int, clear_code, decoded_color_codes, &decoded_color_code_count, &code_table, 1, 1, &current_highest_code, &lzw_bit_size, &code_table_length, previous_code, 1);
-                        } 
-                        else {
-                            (*current_printf_function)("-%s -> representative code\n", code_string);
 
-                            if (code_table[code_int * 2] == -1){ // code is undefined
-                                (*current_printf_function)("--code undefined, creating new code\n");
-                                
-                                current_highest_code++;
+                        lzw_bit_count = number_of_initial_lzw_bits + 1;
+                    }
+                    else if (code == stop_code){
+                        printf("stop code!\n");
+                        is_parsing = 0;
+                    }
+                    else {                        
+                        uint32_t deconstructed_code = code;
 
-                                if (current_highest_code != code_int){
-                                    printf("undefined code's value is not sequencial (cur high code: %d != code int %d)\n", current_highest_code, code_int);
+                        uint8_t can_standardly_add_code = 1;
 
-                    //                 for (int i = 0; i < (1 << (lzw_bit_size)); i++){
-                    //     (*current_printf_function)("%s (%d) -> %s %s\n", msb_byte_to_binary(i, lzw_bit_size), i, msb_byte_to_binary(code_table[i * 2], lzw_bit_size), msb_byte_to_binary(code_table[i * 2 + 1], lzw_bit_size));
-                    // }
+                        // add decoded values
+                        if (code < clear_code){
+                            printf("literal!\n");
 
+                            decoded_color_codes[decoded_color_code_count++] = deconstructed_code;
+                        }
+                        else if (code_table[deconstructed_code * 2] == (uint32_t)(0) - 1){ // code is undefined                    
+                            printf("undefined representative!\n");
+
+                            can_standardly_add_code = 0;
+
+                            uint32_t first_code = previous_code;
+
+                            while (first_code > clear_code){
+                                if (code_table[first_code * 2] == ((uint32_t)-1)){
+                                    printf("error: code points to undefined code\n");
                                     exit(1);
                                 }
 
-                                if (current_highest_code == (1 << lzw_bit_size) - 1){ // if code table is full, increase bit count
-                        (*current_printf_function)("bit count increased from %d->%d\n", lzw_bit_size, lzw_bit_size + 1);
-
-                        lzw_bit_size++;
-
-                        code_table_length = 1 << lzw_bit_size;
-                    }
- 
-                                code_table[current_highest_code * 2] = previous_code;
-                                code_table[current_highest_code * 2 + 1] = get_first_byte_of_code(previous_code, clear_code, current_highest_code, code_table);
-
-                                (*current_printf_function)("---created new code table entry: %s -> %d (%s), %d (%s)\n", code_string, previous_code, msb_byte_to_binary(previous_code, lzw_bit_size), code_table[current_highest_code * 2 + 1], msb_byte_to_binary(code_table[current_highest_code * 2 + 1], lzw_bit_size));
-
-                                add_code(current_highest_code, clear_code, decoded_color_codes, &decoded_color_code_count, &code_table, 1, 1, &current_highest_code, &lzw_bit_size, &code_table_length, previous_code, 0);
-                            } else {
-                                add_code(code_int, clear_code, decoded_color_codes, &decoded_color_code_count, &code_table, 1, 1, &current_highest_code, &lzw_bit_size, &code_table_length, previous_code, 1);
+                                first_code = code_table[first_code * 2];
                             }
+
+                            code_table[++current_highest_defined_code * 2] = previous_code;
+                            code_table[current_highest_defined_code * 2 + 1] = first_code;
+
+                            if (current_highest_defined_code == (uint64_t)((1 << lzw_bit_count) - 1)){
+                                lzw_bit_count++;
+                            }
+
+                            uint16_t temp_decoded_color_count = 0;
+                            uint16_t cur_allocated_temps = 1000;
+                            uint32_t* temp_decoded_colors = malloc(sizeof(uint32_t) * cur_allocated_temps);
+
+                            uint32_t deconstructed_prev_code = previous_code;
+                            
+                            if (deconstructed_prev_code < clear_code) decoded_color_codes[decoded_color_code_count++] = previous_code;
+
+                            while (deconstructed_prev_code > clear_code){
+                                if (code_table[deconstructed_prev_code * 2] == (uint32_t)(0) - 1){
+                                    printf("error: code points to undefined code\n");
+                                    exit(1);
+                                }
+
+                                if (temp_decoded_color_count >= cur_allocated_temps){
+                                    cur_allocated_temps += 1000;
+
+                                    temp_decoded_colors = realloc(temp_decoded_colors, sizeof(uint32_t) * cur_allocated_temps);
+                                }
+
+                                temp_decoded_colors[temp_decoded_color_count++] = code_table[deconstructed_prev_code * 2 + 1]; // add the literal
+                            
+                                if (code_table[deconstructed_prev_code * 2] < clear_code)
+                                    temp_decoded_colors[temp_decoded_color_count++] = code_table[deconstructed_prev_code * 2];
+
+                                deconstructed_prev_code = code_table[deconstructed_prev_code * 2];
+                            }
+
+                            for (int i = temp_decoded_color_count - 1; i >= 0; i--){
+                                decoded_color_codes[decoded_color_code_count++] = temp_decoded_colors[i];
+                            }
+
+                            free(temp_decoded_colors);
+
+                            decoded_color_codes[decoded_color_code_count++] = first_code;
+
+                            printf("added new code: code_table[%d * 2] == %d, %d\n", current_highest_defined_code, previous_code, first_code);
+                        } 
+                        else { // code is defined
+                            printf("defined representative! code_table[%d * 2] == %d, %d\n", code, code_table[deconstructed_code * 2], code_table[deconstructed_code * 2 + 1]);
+
+                            uint16_t temp_decoded_color_count = 0;
+                            uint16_t cur_allocated_temps = 1000;
+                            uint32_t* temp_decoded_colors = malloc(sizeof(uint32_t) * cur_allocated_temps);
+
+                            while (deconstructed_code > clear_code){
+                                if (code_table[deconstructed_code * 2] == (uint32_t)(0) - 1){
+                                    printf("error: code points to undefined code\n");
+                                    exit(1);
+                                }
+
+                                if (temp_decoded_color_count >= cur_allocated_temps){
+                                    cur_allocated_temps += 1000;
+
+                                    temp_decoded_colors = realloc(temp_decoded_colors, sizeof(uint32_t) * cur_allocated_temps);
+                                }
+
+                                temp_decoded_colors[temp_decoded_color_count++] = code_table[deconstructed_code * 2 + 1]; // add the literal
+                            
+                                if (code_table[deconstructed_code * 2] < clear_code)
+                                    temp_decoded_colors[temp_decoded_color_count++] = code_table[deconstructed_code * 2];
+
+                                deconstructed_code = code_table[deconstructed_code * 2];
+                            }
+
+                            for (int i = temp_decoded_color_count - 1; i >= 0; i--){
+                                decoded_color_codes[decoded_color_code_count++] = temp_decoded_colors[i];
+                            }
+
+                            free(temp_decoded_colors);
+                        }
+
+                        // create new code table entry
+                        if (can_standardly_add_code && previous_code != clear_code){
+                            uint32_t first_code = previous_code;
+
+                            while (first_code > clear_code){
+                                if (code_table[first_code * 2] == (uint32_t)(0) - 1){
+                                    printf("error: code points to undefined code\n");
+                                    exit(1);
+                                }
+
+                                first_code = code_table[first_code * 2];
+                            }
+
+                            code_table[++current_highest_defined_code * 2] = previous_code;
+                            code_table[current_highest_defined_code * 2 + 1] = first_code;
+
+                            if (current_highest_defined_code == (uint64_t)((1 << lzw_bit_count) - 1)){
+                                lzw_bit_count++;
+                            }
+
+                            printf("added new code: code_table[%d * 2] == %d, %d\n", current_highest_defined_code, previous_code, first_code);
                         }
                     }
 
-                    printf("%d/%d decoded pixels (%f%%)\n", decoded_color_code_count, image_descriptor_width * image_descriptor_height,  (float)decoded_color_code_count / (float)(image_descriptor_width * image_descriptor_height) * 100);
-                
-                    // preview for black and white images
-                    // for (int i = 0; i < decoded_color_code_count; i++){
-                    //     if (i % image_width == 0) (*current_printf_function)("\n");
-                    //     if(!decoded_color_codes[i]) (*current_printf_function)("██");
-                    //     else (*current_printf_function)("░░");
-                    // }
+                    for (uint32_t i = 0; i < decoded_color_code_count; i++){
+                        if (!decoded_color_codes[i])printf("██ ");
+                        else printf("░░ ");
+                    
+                        if ((i + 1) % image_descriptor_width == 0) printf("\n");
+                    }
 
-                    (*current_printf_function)("\n");
+                    printf("\n");
 
-                    // current status of code table
-                    // for (int i = 0; i < (1 << (lzw_bit_size)); i++){
-                        // (*current_printf_function)("%s (%d) -> %s %s\n", msb_byte_to_binary(i, lzw_bit_size), i, msb_byte_to_binary(code_table[i * 2], lzw_bit_size), msb_byte_to_binary(code_table[i * 2 + 1], lzw_bit_size));
-                    // }
+                    printf("%d/%d colors decoded\n", decoded_color_code_count, image_descriptor_width * image_descriptor_height);
+                        
+                    previous_code = code;
+                }
 
-                    // (*current_printf_function)("parsed string so far: %s\n", parsed_binary_string);
-
-                    (*current_printf_function)("END OF PARSING. CURRENT FRAME IS FRAME %d\n", frame_count);
-
-                    previous_code = code_int;
+                if (decoded_color_code_count != image_descriptor_width * image_descriptor_height){
+                    printf("error: number of decoded pixels is not equal to number of total pixels\n");
                 }
 
                 for (int y = 0; y < image_descriptor_height; y++){
