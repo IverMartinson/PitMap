@@ -1,5 +1,11 @@
 # PitMap, a Bitmap (BMP) Image Parser
 
+## Etymology
+
+BitMap -> Bit & Map
+PitMap -> Pit & Map
+Pit, like a lemon would have. Sounds like "Bit"
+
 ## Roadmap
 
 ### By End of November, 2025
