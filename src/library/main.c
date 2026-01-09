@@ -133,6 +133,9 @@ PM_image* PM_load_bitmap(unsigned char debug_mode){
     }
     
     image->frame_buffer = malloc(sizeof(uint32_t) * image_width * image_height);
+    image->frame_delays = NULL;
+    image->frame_count = 1;
+    image->frame_height = image_height;
     image->width = image_width;
     image->height = image_height;
 
@@ -284,6 +287,7 @@ PM_image* PM_load_gif(unsigned char debug_mode){
     image->frame_height = image_height;
 
     image->frame_buffer = NULL;
+    image->frame_delays = NULL;
 
     image->width = image_width;
 
@@ -363,9 +367,13 @@ PM_image* PM_load_gif(unsigned char debug_mode){
 
                 uint8_t gce_size = get_1();
                 uint8_t packed_field = get_1(); // bit field
-                skip(2);
+                uint16_t delay_time = get_2();
                 transparent_color_gct_index = get_1();
                 skip(1);
+
+                image->frame_delays = realloc(image->frame_delays, sizeof(uint16_t) * frame_count);
+
+                image->frame_delays[frame_count - 1] = delay_time;
 
                 // "disposal method" is the first variable in the packed field
                 // we can ignore this because I think it's mostly for UI programs
@@ -746,3 +754,12 @@ PM_image* PM_load_image(const char *filename, unsigned char debug_mode){
 
     return NULL;
 }   
+
+void PM_free_image(PM_image* image){
+    if (image){
+        if (image->frame_buffer) free(image->frame_buffer);
+        if (image->frame_delays) free(image->frame_delays);
+        free(image);
+    } else  
+        printf("can't free a NULL image!\n");
+}

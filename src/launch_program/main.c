@@ -43,7 +43,17 @@ int write_tga(const char* path, const PM_image* img) {
 }
 
 int main(){
-    write_tga("./image.tga", PM_load_image("images/test.gif.gif", 0));
+    PM_image* image = PM_load_image("images/test.gif.gif", 0);
+
+    write_tga("./image.tga", image);
+
+    for (int i = 0; i < image->frame_count; i++){
+        printf("%f seconds, ", (double)image->frame_delays[i] / 100.0);
+    }
+
+    printf("\n");
+
+    PM_free_image(image);
 
     return 0;
 }
