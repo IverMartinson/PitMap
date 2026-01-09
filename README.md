@@ -2,9 +2,9 @@
 
 ## Etymology
 
-BitMap -> Bit & Map
-PitMap -> Pit & Map
-Pit, like a lemon would have. Sounds like "Bit"
+* BitMap -> Bit & Map
+* PitMap -> Pit & Map
+* Pit, like a lemon would have. Sounds like "Bit"
 
 ## Roadmap
 
