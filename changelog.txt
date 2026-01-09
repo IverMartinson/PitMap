@@ -1,0 +1,1 @@
+-fixed errors that were holding me up for weeks. In the standard code addition branch, first_code was mistakenly set to previous code instead of code, & clear code was not reseting current_highest_defined_code

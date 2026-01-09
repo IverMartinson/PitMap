@@ -440,9 +440,9 @@ PM_image* PM_load_gif(unsigned char debug_mode){
                     
                     for (int i = 0; i < image_data_byte_length; i++){
                         image_data_byte_array[total_image_data_byte_length - image_data_byte_length + i] = get_1();
-                        printf("%s ", lsb_byte_to_binary(image_data_byte_array[total_image_data_byte_length - image_data_byte_length + i], 8));
+                        (*current_printf_function)("%s ", lsb_byte_to_binary(image_data_byte_array[total_image_data_byte_length - image_data_byte_length + i], 8));
                     }
-                    printf("\n");
+                    (*current_printf_function)("\n");
 
                     image_data_byte_length = get_1();
                 } 
@@ -459,7 +459,7 @@ PM_image* PM_load_gif(unsigned char debug_mode){
 
                 uint32_t current_highest_defined_code = stop_code;
 
-                printf("clear code: %d stop code: %d\n", clear_code, stop_code);
+                (*current_printf_function)("clear code: %d stop code: %d\n", clear_code, stop_code);
 
                 while (is_parsing){
                     uint32_t code = 0;
@@ -474,23 +474,25 @@ PM_image* PM_load_gif(unsigned char debug_mode){
 
                         current_bit += lzw_bit_count;
                     } else {
-                        printf("error: read past data length\n");
+                        (*current_printf_function)("error: read past data length\n");
                         exit(1);
                     }
 
-                    printf("parsing code %s (%d)\n", msb_byte_to_binary(code, lzw_bit_count), (int)code);
+                    (*current_printf_function)("parsing code %s (%d)\n", msb_byte_to_binary(code, lzw_bit_count), (int)code);
 
                     if (code == clear_code){
-                        printf("clear code!\n");
+                        (*current_printf_function)("clear code!\n");
 
                         for (int i = 0; i < 4096 * 2; i++){
                             code_table[i] = (uint32_t)(0) - 1;
                         }
 
+                        current_highest_defined_code = stop_code;
+
                         lzw_bit_count = number_of_initial_lzw_bits + 1;
                     }
                     else if (code == stop_code){
-                        printf("stop code!\n");
+                        (*current_printf_function)("stop code!\n");
                         is_parsing = 0;
                     }
                     else {                        
@@ -500,12 +502,12 @@ PM_image* PM_load_gif(unsigned char debug_mode){
 
                         // add decoded values
                         if (code < clear_code){
-                            printf("literal!\n");
+                            (*current_printf_function)("literal!\n");
 
                             decoded_color_codes[decoded_color_code_count++] = deconstructed_code;
                         }
                         else if (code_table[deconstructed_code * 2] == (uint32_t)(0) - 1){ // code is undefined                    
-                            printf("undefined representative!\n");
+                            (*current_printf_function)("undefined representative!\n");
 
                             can_standardly_add_code = 0;
 
@@ -563,10 +565,10 @@ PM_image* PM_load_gif(unsigned char debug_mode){
 
                             decoded_color_codes[decoded_color_code_count++] = first_code;
 
-                            printf("added new code: code_table[%d * 2] == %d, %d\n", current_highest_defined_code, previous_code, first_code);
+                            (*current_printf_function)("added new code (from undefined code branch): code_table[%d * 2] == %d, %d\n", current_highest_defined_code, previous_code, first_code);
                         } 
                         else { // code is defined
-                            printf("defined representative! code_table[%d * 2] == %d, %d\n", code, code_table[deconstructed_code * 2], code_table[deconstructed_code * 2 + 1]);
+                            (*current_printf_function)("defined representative! code_table[%d * 2] == %d, %d\n", code, code_table[deconstructed_code * 2], code_table[deconstructed_code * 2 + 1]);
 
                             uint16_t temp_decoded_color_count = 0;
                             uint16_t cur_allocated_temps = 1000;
@@ -601,7 +603,7 @@ PM_image* PM_load_gif(unsigned char debug_mode){
 
                         // create new code table entry
                         if (can_standardly_add_code && previous_code != clear_code){
-                            uint32_t first_code = previous_code;
+                            uint32_t first_code = code;
 
                             while (first_code > clear_code){
                                 if (code_table[first_code * 2] == (uint32_t)(0) - 1){
@@ -619,20 +621,20 @@ PM_image* PM_load_gif(unsigned char debug_mode){
                                 lzw_bit_count++;
                             }
 
-                            printf("added new code: code_table[%d * 2] == %d, %d\n", current_highest_defined_code, previous_code, first_code);
+                            (*current_printf_function)("added new code (from standard branch): code_table[%d * 2] == %d, %d\n", current_highest_defined_code, previous_code, first_code);
                         }
                     }
 
-                    for (uint32_t i = 0; i < decoded_color_code_count; i++){
-                        if (!decoded_color_codes[i])printf("██ ");
-                        else printf("░░ ");
+                    // for (uint32_t i = 0; i < decoded_color_code_count; i++){
+                    //     if (!decoded_color_codes[i])(*current_printf_function)("██ ");
+                    //     else (*current_printf_function)("░░ ");
                     
-                        if ((i + 1) % image_descriptor_width == 0) printf("\n");
-                    }
+                    //     if ((i + 1) % image_descriptor_width == 0) (*current_printf_function)("\n");
+                    // }
 
-                    printf("\n");
+                    (*current_printf_function)("\n");
 
-                    printf("%d/%d colors decoded\n", decoded_color_code_count, image_descriptor_width * image_descriptor_height);
+                    (*current_printf_function)("%d/%d colors decoded\n", decoded_color_code_count, image_descriptor_width * image_descriptor_height);
                         
                     previous_code = code;
                 }
@@ -671,7 +673,7 @@ PM_image* PM_load_image(const char *filename, unsigned char debug_mode){
     FILE *fp = fopen(filename, "rb");
 
     if (fp == NULL){
-        printf("file does not exist !!!\n");
+        (*current_printf_function)("file does not exist !!!\n");
 
         return NULL;
     }
@@ -698,7 +700,7 @@ PM_image* PM_load_image(const char *filename, unsigned char debug_mode){
         strtok_string = strtok(NULL, ".");
     }
 
-    // override printf so there is no debug output
+    // override (*current_printf_function) so there is no debug output
     if (!debug_mode){
         current_printf_function = printf_override;
     }
@@ -710,7 +712,7 @@ PM_image* PM_load_image(const char *filename, unsigned char debug_mode){
         return PM_load_bitmap(debug_mode);
     }
 
-    printf("file is unreadable by PitMap\n");
+    (*current_printf_function)("file is unreadable by PitMap\n");
 
     return NULL;
 }   
