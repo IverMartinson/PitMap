@@ -149,7 +149,7 @@ PM_image* PM_load_bitmap(unsigned char debug_mode){
             for (int y = image_height - 1; y >= 0; y--){
                 int current_byte_of_row = 0;
 
-                for (int x = image_width - 1; x >= 0; x--){ // starting reversed becuase image data is backwards
+                for (uint32_t x = 0; x < image_width; x++){ // starting reversed becuase image data is backwards
                     image->frame_buffer[y * image_width + x] = (uint32_t)((uint8_t)get_1() << 24 | (uint8_t)get_1() << 16 | (uint8_t)get_1() << 8 | (uint8_t)get_1());
 
                     current_byte_of_row += 4;
@@ -165,7 +165,7 @@ PM_image* PM_load_bitmap(unsigned char debug_mode){
             for (int y = image_height - 1; y >= 0; y--){
                 int current_byte_of_row = 0;
 
-                for (int x = image_width - 1; x >= 0; x--){ // starting reversed becuase image data is backwards
+                for (uint32_t x = 0; x < image_width; x++){ // starting reversed becuase image data is backwards
                     image->frame_buffer[y * image_width + x] = (uint32_t)((uint8_t)get_1() << 24 | (uint8_t)get_1() << 16 | (uint8_t)get_1() << 8 | 255);
                     
                     current_byte_of_row += 3;
@@ -187,7 +187,7 @@ PM_image* PM_load_bitmap(unsigned char debug_mode){
             if (compression_method == 0){ // no compression
                 for (int y = image_height - 1; y >= 0; y--){
 
-                    for (int x = image_width - 1; x >= 0; x--){ // starting reversed becuase image data is backwards
+                    for (uint32_t x = 0; x < image_width; x++){ // starting reversed becuase image data is backwards
                     uint8_t palette_index = get_1();
 
                         // (*current_printf_function)("current pixel is %dx%d\npalette index is %d\n", x, y, palette_index);
@@ -199,7 +199,7 @@ PM_image* PM_load_bitmap(unsigned char debug_mode){
             }    
             }
             else { // assume RLE
-                uint16_t x = image_width - 1;
+                uint16_t x = 0;
             uint16_t y = image_height - 1;
 
             unsigned char reading_file = 1;
@@ -211,16 +211,16 @@ PM_image* PM_load_bitmap(unsigned char debug_mode){
                 if (number_of_repetitions > 0){
                     for (uint8_t pixel = 0; pixel < number_of_repetitions; pixel++){
                         // (*current_printf_function)("current pixel is %dx%d\npalette index is %d\n", x, y, palette_index);
-                        image->frame_buffer[y * image_width + x--] = color_palette[palette_index];
+                        image->frame_buffer[y * image_width + x++] = color_palette[palette_index];
                     }
                 } else {
                     if (palette_index == 0) { // end of a line
-                        x = image_width - 1;
+                        x = 0;
                         y--;
                     } else if (palette_index == 1){ // end of image
                         reading_file = 0;
                     } else { // delta   
-                        x -= get_1();
+                        x += get_1();
                         y -= get_1();
                     }
                 }
@@ -281,6 +281,8 @@ PM_image* PM_load_gif(unsigned char debug_mode){
     uint16_t image_width = get_2();
     uint16_t image_height = get_2();
     
+    image->frame_height = image_height;
+
     image->frame_buffer = NULL;
 
     image->width = image_width;
@@ -342,6 +344,9 @@ PM_image* PM_load_gif(unsigned char debug_mode){
         // return image;
     }
 
+    uint8_t transparent_color_gct_index = 0;
+    uint8_t has_transparency = 0;
+
     unsigned char still_reading_file = 1;
 
     while (still_reading_file){        
@@ -359,7 +364,7 @@ PM_image* PM_load_gif(unsigned char debug_mode){
                 uint8_t gce_size = get_1();
                 uint8_t packed_field = get_1(); // bit field
                 skip(2);
-                uint8_t transparent_color_gct_index = get_1();
+                transparent_color_gct_index = get_1();
                 skip(1);
 
                 // "disposal method" is the first variable in the packed field
@@ -372,8 +377,7 @@ PM_image* PM_load_gif(unsigned char debug_mode){
 
                 (*current_printf_function)("transparency index: %d\n", transparent_color_gct_index);
 
-                // set the transparent color to 0% opacity
-                if (packed_field & 1) global_color_table[transparent_color_gct_index] &= 0xFFFFFF00; // bit mask for alpha channel to be 0
+                has_transparency = packed_field & 1;
 
                 break;
             }
@@ -643,9 +647,33 @@ PM_image* PM_load_gif(unsigned char debug_mode){
                     printf("error: number of decoded pixels is not equal to number of total pixels\n");
                 }
 
+                (*current_printf_function)("image descriptor is %dx%d, offset is %dx%d\n", image_descriptor_width, image_descriptor_height, image_left_pos, image_top_pos);
+
+                if (frame_count > 1){
+                    for (int y = 0; y < image_height; y++){
+                        for (int x = 0; x < image_width; x++){
+                            uint32_t frame_offset_1 = image_height * (frame_count - 1);
+                            uint32_t frame_offset_2 = image_height * (frame_count - 2);
+                            
+                            image->frame_buffer[(y + frame_offset_1) * image_width + x] = 
+                                image->frame_buffer[(y + frame_offset_2) * image_width + x];
+                        }
+                    }
+                }
+
                 for (int y = 0; y < image_descriptor_height; y++){
                     for (int x = 0; x < image_descriptor_width; x++){
-                        image->frame_buffer[(y + image_top_pos + image_height * (frame_count - 1)) * image_width + (x + image_left_pos)] = local_color_table_flag ? local_color_table[decoded_color_codes[y * image_width + x]] : global_color_table[decoded_color_codes[y * image_width + x]];
+                        if (has_transparency && decoded_color_codes[y * image_descriptor_width + x] == transparent_color_gct_index)
+                            continue;
+                        else{
+                            uint32_t frame_offset = image_height * (frame_count - 1);
+
+                            uint32_t color = local_color_table_flag ? 
+                                local_color_table[decoded_color_codes[y * image_descriptor_width + x]] : 
+                                global_color_table[decoded_color_codes[y * image_descriptor_width + x]];
+
+                            image->frame_buffer[(y + image_top_pos + frame_offset) * image_width + x + image_left_pos] = color;
+                        }
                     }
                 }
                 
@@ -661,6 +689,8 @@ PM_image* PM_load_gif(unsigned char debug_mode){
             }
         }
     }
+
+    image->frame_count = frame_count;
 
     return image;
 }

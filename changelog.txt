@@ -1,1 +1,6 @@
--fixed errors that were holding me up for weeks. In the standard code addition branch, first_code was mistakenly set to previous code instead of code, & clear code was not reseting current_highest_defined_code
+-fixed GIF errors that were holding me up for weeks. In the standard code addition branch, first_code was mistakenly set to previous code instead of code, & clear code was not reseting current_highest_defined_code
+-flipped output of GIF parser
+-returned image has animation data
+-frame is equal to previous frame
+-if pixel is the transparent index ignore it
+-un-flipped parsers that flipped data before

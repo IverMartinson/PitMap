@@ -14,7 +14,7 @@ Pit, like a lemon would have. Sounds like "Bit"
 
 ### By End of February, 2026
 
- - [ ] GIF support
+ - [x] GIF support **`finished on January 8th, 2026`**
 
 ### By End of May, 2026
 
