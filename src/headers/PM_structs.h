@@ -12,7 +12,7 @@ typedef struct {
 
 typedef enum {
     PM_ARGB,
-    PM_ABRG,
+    PM_ABGR,
     PM_RGBA,
     PM_BGRA,
 } PM_color_type;

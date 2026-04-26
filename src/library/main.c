@@ -127,7 +127,29 @@ PM_image* PM_load_bitmap(PM_color_type color_type, unsigned char debug_mode){
             unsigned char g = get_1();
             unsigned char r = get_1();
             
-            color_palette[i] = b << 24 | g << 16 | r << 8 | 255 << 0;
+            switch(color_type){
+                case (PM_ABGR):{
+                    color_palette[i] = 0xFF << 24 | b << 16 | g << 8 | r << 0;
+                    
+                    break;
+                }
+                case (PM_ARGB):{
+                    color_palette[i] = 0xFF << 24 | r << 16 | g << 8 | b << 0;
+                    
+                    break;
+                }
+                case (PM_BGRA):{
+                    color_palette[i] = b << 24 | g << 16 | r << 8 | 0xFF << 0;
+                    
+                    break;
+                }
+                case (PM_RGBA):{
+                    color_palette[i] = r << 24 | g << 16 | b << 8 | 0xFF << 0;
+                    
+                    break;
+                }
+            }
+
             skip(1);
         }
     }
@@ -153,7 +175,33 @@ PM_image* PM_load_bitmap(PM_color_type color_type, unsigned char debug_mode){
                 int current_byte_of_row = 0;
 
                 for (uint32_t x = 0; x < image_width; x++){ // starting reversed becuase image data is backwards
-                    image->frame_buffer[y * image_width + x] = (uint32_t)((uint8_t)get_1() << 24 | (uint8_t)get_1() << 16 | (uint8_t)get_1() << 8 | (uint8_t)get_1());
+                    uint8_t r = get_1();
+                    uint8_t g = get_1();
+                    uint8_t b = get_1();
+                    uint8_t a = get_1();
+
+                    switch(color_type){
+                        case (PM_ABGR):{
+                            image->frame_buffer[y * image_width + x] = a << 24 | b << 16 | g << 8 | r << 0;
+                            
+                            break;
+                        }
+                        case (PM_ARGB):{
+                            image->frame_buffer[y * image_width + x] = a << 24 | r << 16 | g << 8 | b << 0;
+                            
+                            break;
+                        }
+                        case (PM_BGRA):{
+                            image->frame_buffer[y * image_width + x] = b << 24 | g << 16 | r << 8 | a << 0;
+                            
+                            break;
+                        }
+                        case (PM_RGBA):{
+                            image->frame_buffer[y * image_width + x] = r << 24 | g << 16 | b << 8 | a << 0;
+                            
+                            break;
+                        }
+                    }
 
                     current_byte_of_row += 4;
                 }
@@ -169,8 +217,33 @@ PM_image* PM_load_bitmap(PM_color_type color_type, unsigned char debug_mode){
                 int current_byte_of_row = 0;
 
                 for (uint32_t x = 0; x < image_width; x++){ // starting reversed becuase image data is backwards
-                    image->frame_buffer[y * image_width + x] = (uint32_t)((uint8_t)get_1() << 24 | (uint8_t)get_1() << 16 | (uint8_t)get_1() << 8 | 255);
-                    
+                    uint8_t b = get_1();
+                    uint8_t g = get_1();
+                    uint8_t r = get_1();
+
+                    switch(color_type){
+                        case (PM_ABGR):{
+                            image->frame_buffer[y * image_width + x] = 0xFF << 24 | b << 16 | g << 8 | r << 0;
+                            
+                            break;
+                        }
+                        case (PM_ARGB):{
+                            image->frame_buffer[y * image_width + x] = 0xFF << 24 | r << 16 | g << 8 | b << 0;
+                            
+                            break;
+                        }
+                        case (PM_BGRA):{
+                            image->frame_buffer[y * image_width + x] = b << 24 | g << 16 | r << 8 | 0xFF << 0;
+                            
+                            break;
+                        }
+                        case (PM_RGBA):{
+                            image->frame_buffer[y * image_width + x] = r << 24 | g << 16 | b << 8 | 0xFF << 0;
+                            
+                            break;
+                        }
+                    }
+                
                     current_byte_of_row += 3;
                 }
             
@@ -258,8 +331,6 @@ PM_image* PM_load_gif(PM_color_type color_type, unsigned char debug_mode){
 
     // magic number
 
-    uint8_t is_87a = 0;
-
     if (get_1() != 0x47 || get_1() != 0x49 || get_1() != 0x46 || get_1() != 0x38 || get_1() != 0x39 || get_1() != 0x61){
         current_byte = 4;
 
@@ -269,7 +340,6 @@ PM_image* PM_load_gif(PM_color_type color_type, unsigned char debug_mode){
             return NULL;
         } else {
             (*current_printf_function)("gif is verision 87a\n");
-            is_87a = 1;
         }
         
         skip(1);
@@ -290,13 +360,13 @@ PM_image* PM_load_gif(PM_color_type color_type, unsigned char debug_mode){
     image->frame_delays = NULL;
 
     image->width = image_width;
-
-    if (is_87a){ // 87a doesnt have GCE so just do everything that it would do
+    
+    // if (is_87a){ // 87a doesnt have GCE so just do everything that it would do
         frame_count++;
 
         image->height = image_height * frame_count;
         image->frame_buffer = realloc(image->frame_buffer, sizeof(uint32_t) * image_width * image_height);
-    }
+    // }
 
     uint16_t total_image_height = image_height;
 
@@ -337,7 +407,28 @@ PM_image* PM_load_gif(PM_color_type color_type, unsigned char debug_mode){
             unsigned char g = get_1(); 
             unsigned char b = get_1();
             
-            global_color_table[i] = b << 24 | g << 16 | r << 8 | 255 << 0;
+            switch(color_type){
+                case (PM_ABGR):{
+                    global_color_table[i] = 0xFF << 24 | b << 16 | g << 8 | r << 0;
+                    
+                    break;
+                }
+                case (PM_ARGB):{
+                    global_color_table[i] = 0xFF << 24 | r << 16 | g << 8 | b << 0;
+                    
+                    break;
+                }
+                case (PM_BGRA):{
+                    global_color_table[i] = b << 24 | g << 16 | r << 8 | 0xFF << 0;
+                    
+                    break;
+                }
+                case (PM_RGBA):{
+                    global_color_table[i] = r << 24 | g << 16 | b << 8 | 0xFF << 0;
+                    
+                    break;
+                }
+                        }
         }
 
         // image->frame_buffer = global_color_table;
@@ -364,27 +455,27 @@ PM_image* PM_load_gif(PM_color_type color_type, unsigned char debug_mode){
 
                 image->height = image_height * frame_count;
                 image->frame_buffer = realloc(image->frame_buffer, sizeof(uint32_t) * image_width * image_height * frame_count);
-
+                
                 uint8_t gce_size = get_1();
                 uint8_t packed_field = get_1(); // bit field
                 uint16_t delay_time = get_2();
                 transparent_color_gct_index = get_1();
                 skip(1);
-
+                
                 image->frame_delays = realloc(image->frame_delays, sizeof(uint16_t) * frame_count);
-
+                
                 image->frame_delays[frame_count - 1] = delay_time;
-
+                
                 // "disposal method" is the first variable in the packed field
                 // we can ignore this because I think it's mostly for UI programs
-
+                
                 // next is "input method" and it doesn't rly make sense to me to 
                 // exist in the first place
                 
                 // transparency flag; transparency index is given
-
+                
                 (*current_printf_function)("transparency index: %d\n", transparent_color_gct_index);
-
+                
                 has_transparency = packed_field & 1;
 
                 break;
@@ -420,7 +511,28 @@ PM_image* PM_load_gif(PM_color_type color_type, unsigned char debug_mode){
                         unsigned char g = get_1(); 
                         unsigned char b = get_1();
                         
-                        if () local_color_table[i] = b << 24 | g << 16 | r << 8 | 255 << 0;
+                        switch(color_type){
+                            case (PM_ABGR):{
+                                local_color_table[i] = 0xFF << 24 | b << 16 | g << 8 | r << 0;
+                                
+                                break;
+                            }
+                            case (PM_ARGB):{
+                                local_color_table[i] = 0xFF << 24 | r << 16 | g << 8 | b << 0;
+                                
+                                break;
+                            }
+                            case (PM_BGRA):{
+                                local_color_table[i] = b << 24 | g << 16 | r << 8 | 0xFF << 0;
+                                
+                                break;
+                            }
+                            case (PM_RGBA):{
+                                local_color_table[i] = r << 24 | g << 16 | b << 8 | 0xFF << 0;
+                                
+                                break;
+                            }
+                        }
                     }
 
                     // image->frame_buffer = local_color_table;
@@ -744,10 +856,10 @@ PM_image* PM_load_image(const char *filename, PM_color_type color_type, unsigned
     }
 
     if (!strcmp(filetype_string, "gif") || !strcmp(filetype_string, "GIF")){ // GIF file
-        return PM_load_gif(debug_mode);
+        return PM_load_gif(color_type, debug_mode);
     } else 
     if (!strcmp(filetype_string, "bmp") || !strcmp(filetype_string, "BMP")){ // BMP file
-        return PM_load_bitmap(debug_mode);
+        return PM_load_bitmap(color_type, debug_mode);
     }
 
     (*current_printf_function)("file is unreadable by PitMap\n");
