@@ -168,16 +168,16 @@ PM_image* PM_load_bitmap(PM_color_type color_type, unsigned char debug_mode){
     int row_size = ceil((float)(bits_per_pixel * image_width) / (32)) * 4;
 
     (*current_printf_function)("%d bits per pixel\n", bits_per_pixel);
-// MAKE PITMAP COLOR TPYES
+
     switch (bits_per_pixel){
         case (32): { // RGBA 1 byte each
             for (int y = image_height - 1; y >= 0; y--){
                 int current_byte_of_row = 0;
 
                 for (uint32_t x = 0; x < image_width; x++){ // starting reversed becuase image data is backwards
-                    uint8_t r = get_1();
-                    uint8_t g = get_1();
                     uint8_t b = get_1();
+                    uint8_t g = get_1();
+                    uint8_t r = get_1();
                     uint8_t a = get_1();
 
                     switch(color_type){
