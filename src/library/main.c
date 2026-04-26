@@ -74,7 +74,7 @@ int32_t get_4(){
 }
 
 
-PM_image* PM_load_bitmap(unsigned char debug_mode){
+PM_image* PM_load_bitmap(PM_color_type color_type, unsigned char debug_mode){
     PM_image* image = malloc(sizeof(PM_image));
 
     current_byte = 0;
@@ -123,11 +123,11 @@ PM_image* PM_load_bitmap(unsigned char debug_mode){
         for (uint32_t i = 0; i < number_of_colors_in_palette; i++){
             // BGR0 -> RGB255
             
-            unsigned char r = get_1();
-            unsigned char g = get_1();
             unsigned char b = get_1();
+            unsigned char g = get_1();
+            unsigned char r = get_1();
             
-            color_palette[i] = r << 24 | g << 16 | b << 8 | 255 << 0;
+            color_palette[i] = b << 24 | g << 16 | r << 8 | 255 << 0;
             skip(1);
         }
     }
@@ -146,7 +146,7 @@ PM_image* PM_load_bitmap(unsigned char debug_mode){
     int row_size = ceil((float)(bits_per_pixel * image_width) / (32)) * 4;
 
     (*current_printf_function)("%d bits per pixel\n", bits_per_pixel);
-
+// MAKE PITMAP COLOR TPYES
     switch (bits_per_pixel){
         case (32): { // RGBA 1 byte each
             for (int y = image_height - 1; y >= 0; y--){
@@ -251,7 +251,7 @@ PM_image* PM_load_bitmap(unsigned char debug_mode){
 }
 
 
-PM_image* PM_load_gif(unsigned char debug_mode){
+PM_image* PM_load_gif(PM_color_type color_type, unsigned char debug_mode){
     PM_image* image = malloc(sizeof(PM_image));
 
     current_byte = 0;
@@ -420,7 +420,7 @@ PM_image* PM_load_gif(unsigned char debug_mode){
                         unsigned char g = get_1(); 
                         unsigned char b = get_1();
                         
-                        local_color_table[i] = b << 24 | g << 16 | r << 8 | 255 << 0;
+                        if () local_color_table[i] = b << 24 | g << 16 | r << 8 | 255 << 0;
                     }
 
                     // image->frame_buffer = local_color_table;
@@ -707,7 +707,7 @@ int printf_override(const char *__restrict __format, ...){
     return 0;
 }
 
-PM_image* PM_load_image(const char *filename, unsigned char debug_mode){
+PM_image* PM_load_image(const char *filename, PM_color_type color_type, unsigned char debug_mode){
     FILE *fp = fopen(filename, "rb");
 
     if (fp == NULL){
