@@ -17,9 +17,4 @@ typedef enum {
     PM_BGRA,
 } PM_color_type;
 
-#define pmcodeargb a << 24 | r << 16 | g << 8 | b << 0
-#define pmcodeabgr a << 24 | b << 16 | g << 8 | r << 0
-#define pmcodergba r << 24 | g << 16 | b << 8 | a << 0
-#define pmcodebgra b << 24 | g << 16 | r << 8 | a << 0
-
 #endif
